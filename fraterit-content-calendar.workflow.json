@@ -1,0 +1,364 @@
+{
+  "name": "FraterIT — Weekly Content Calendar Automation",
+  "nodes": [
+    {
+      "id": "node-manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [120, 200],
+      "parameters": {}
+    },
+    {
+      "id": "node-schedule-trigger",
+      "name": "Schedule Trigger (Mon/Wed/Fri 8am CT)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [120, 380],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1,3,5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-select-script",
+      "name": "Select Script for Today",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [380, 290],
+      "parameters": {
+        "jsCode": "// ─────────────────────────────────────────────────────────────────────────────\n// FraterIT Content Calendar — Script Selector\n// Determines the correct script based on current week-of-month and day-of-week.\n// Week number resets every 4 weeks to loop the 4-week calendar.\n// ─────────────────────────────────────────────────────────────────────────────\n\nconst METADATA = {\n  brand: \"FraterIT Enterprises Inc.\",\n  website: \"fraterit.com\",\n  email: \"carlosalberto@fraterit.com\",\n  target_audience: \"Companies with 75-500 employees in healthcare, insurance, financial services\",\n  video_format: \"Vertical 9:16, 30 seconds, captions burned in\",\n  voice_tone: \"Authoritative, direct, peer-to-peer — not salesy\"\n};\n\nconst FORMATS = {\n  lockbit: {\n    label: \"LockBit Incident\",\n    description: \"Real ransomware recovery case study. FraterIT led containment, network rebuild, IR report, and FBI coordination.\",\n    structure: \"What happened → how fast → what failed → what we did\",\n    pexels_keywords: [\"cybersecurity\", \"server room\", \"network breach\", \"data center\"]\n  },\n  covered: {\n    label: \"Are You Covered?\",\n    description: \"Compliance checklist format targeting decision-makers.\",\n    structure: \"Qualifying question → 2-3 specific checks → consequence if no → CTA\",\n    pexels_keywords: [\"business meeting\", \"executive office\", \"compliance\", \"healthcare IT\"]\n  },\n  itguy: {\n    label: \"IT Guy Secret\",\n    description: \"Targets CFOs and COOs who delegate IT and assume they are covered.\",\n    structure: \"False assumption → reveal the gap → specific example → CTA\",\n    pexels_keywords: [\"IT team\", \"server room\", \"network monitoring\", \"office technology\"]\n  },\n  compliance: {\n    label: \"Compliance Countdown\",\n    description: \"Urgency-driven, industry-specific. Speaks to regulated industry buyers.\",\n    structure: \"Regulatory hook → what auditors actually check → what most companies get wrong → CTA\",\n    pexels_keywords: [\"audit\", \"compliance document\", \"financial services\", \"insurance office\"]\n  }\n};\n\nconst SCRIPTS = {\n  week1: {\n    monday: {\n      format: \"lockbit\",\n      title: \"LockBit hit a Chicago company on a Tuesday morning\",\n      hook: \"A Chicago company had antivirus, a firewall, and a managed IT team.\",\n      body: \"On a Tuesday morning, LockBit 3.0 encrypted their entire network in under 4 hours. We were the ones who got the call. Here is what we found when we walked in — and why their defenses failed completely.\",\n      cta: \"We documented the full recovery at fraterit.com\",\n      youtube_title: \"LockBit 3.0 Hit a Chicago Company in 4 Hours — Here's What Failed | FraterIT\",\n      youtube_tags: [\"ransomware\", \"LockBit\", \"cybersecurity\", \"MSSP\", \"Chicago\", \"incident response\"],\n      youtube_description: \"A real LockBit 3.0 ransomware recovery from FraterIT Enterprises. We led containment, network rebuild, and FBI coordination. Full case study at fraterit.com\"\n    },\n    wednesday: {\n      format: \"covered\",\n      title: \"3 questions healthcare IT can't answer\",\n      hook: \"If you are in healthcare, your IT team should be able to answer these 3 questions right now.\",\n      body: \"One: when did you last audit who has access to PHI? Two: do you have a tested incident response plan? Three: are your vendors security-vetted? Most companies we assess cannot answer all three.\",\n      cta: \"Download our free healthcare security checklist at fraterit.com\",\n      youtube_title: \"3 Cybersecurity Questions Your Healthcare IT Team Should Answer Right Now | FraterIT\",\n      youtube_tags: [\"HIPAA\", \"healthcare cybersecurity\", \"PHI\", \"MSSP\", \"security assessment\"],\n      youtube_description: \"Quick compliance checklist for healthcare companies with 75-500 employees. Is your security program actually protecting patient data? fraterit.com\"\n    },\n    friday: {\n      format: \"itguy\",\n      title: \"MFA is not enough — here's what your IT team isn't saying\",\n      hook: \"Your IT team turned on MFA. Good. But MFA does not stop a compromised vendor.\",\n      body: \"It does not stop a misconfigured firewall rule. It does not stop an insider threat. Here is what your IT team is not telling your leadership about your actual risk exposure right now.\",\n      cta: \"Request a risk assessment at fraterit.com\",\n      youtube_title: \"MFA Is Not Enough — What Your IT Team Isn't Telling Leadership | FraterIT\",\n      youtube_tags: [\"MFA\", \"cybersecurity\", \"IT security\", \"risk assessment\", \"MSSP\"],\n      youtube_description: \"Multi-factor authentication is a good start — but it's not a security program. FraterIT breaks down what's missing. fraterit.com\"\n    }\n  },\n  week2: {\n    monday: {\n      format: \"compliance\",\n      title: \"Illinois DOI audit — 3 things they check first\",\n      hook: \"Illinois DOI auditors look at three things first.\",\n      body: \"Your access control logs. Your incident response policy. And your vendor contracts. If any of those are not airtight, your audit will not go smoothly. Here is how to prepare in the next 30 days.\",\n      cta: \"We help insurance companies prep for DOI review — fraterit.com\",\n      youtube_title: \"Illinois DOI Audit: 3 Things Auditors Check First | FraterIT\",\n      youtube_tags: [\"Illinois DOI\", \"insurance compliance\", \"cybersecurity audit\", \"NAIC\", \"MSSP\"],\n      youtube_description: \"Insurance companies in Illinois — here is what DOI auditors prioritize. FraterIT helps regulated firms prepare. fraterit.com\"\n    },\n    wednesday: {\n      format: \"lockbit\",\n      title: \"They paid the ransom. Two weeks later the data leaked anyway.\",\n      hook: \"During the LockBit recovery, the company asked us whether they should pay the ransom.\",\n      body: \"We told them the truth: payment does not guarantee anything. They paid anyway. Two weeks later, the stolen data appeared on the dark web. Here is what you should be doing instead of relying on cyber insurance to bail you out.\",\n      cta: \"Our full IR methodology is at fraterit.com\",\n      youtube_title: \"They Paid the LockBit Ransom — Then the Data Leaked Anyway | FraterIT\",\n      youtube_tags: [\"ransomware\", \"LockBit\", \"cyber insurance\", \"incident response\", \"dark web\"],\n      youtube_description: \"Paying a ransomware demand doesn't guarantee data recovery. FraterIT shares what actually happened — and what works instead. fraterit.com\"\n    },\n    friday: {\n      format: \"covered\",\n      title: \"GLBA compliance — do you have the program or just the document?\",\n      hook: \"GLBA requires financial firms to have a written information security program.\",\n      body: \"Most have the document. Very few have the program. If you cannot tell me who owns your security risk right now, your GLBA compliance is a liability — not a protection.\",\n      cta: \"GLBA gap assessment available at fraterit.com\",\n      youtube_title: \"GLBA Compliance: Do You Have the Program or Just the Document? | FraterIT\",\n      youtube_tags: [\"GLBA\", \"financial services\", \"compliance\", \"information security\", \"MSSP\"],\n      youtube_description: \"Financial firms — GLBA compliance requires more than a written policy. FraterIT assesses your actual program. fraterit.com\"\n    }\n  },\n  week3: {\n    monday: {\n      format: \"itguy\",\n      title: \"Your IT vendor has admin access — who's watching them?\",\n      hook: \"If your managed IT provider has admin access to your systems — and most do — they are your largest attack surface.\",\n      body: \"Do you have a contract that defines their security obligations? Have you reviewed their SOC 2 report? Have you audited what they can access? Your IT team cannot audit themselves.\",\n      cta: \"We do independent vendor security reviews — fraterit.com\",\n      youtube_title: \"Your IT Vendor Has Admin Access — Who's Watching Them? | FraterIT\",\n      youtube_tags: [\"vendor risk\", \"managed IT\", \"cybersecurity\", \"SOC 2\", \"third party risk\"],\n      youtube_description: \"Your managed IT provider may be your biggest security blind spot. FraterIT provides independent vendor security reviews. fraterit.com\"\n    },\n    wednesday: {\n      format: \"compliance\",\n      title: \"HIPAA requires a risk assessment — when did you last do one?\",\n      hook: \"HHS does not expect zero breaches. They expect documented risk management.\",\n      body: \"The most common HIPAA finding we see is not a missing control — it is a missing risk assessment. If you have not done one in the last 12 months, you are already out of compliance.\",\n      cta: \"Schedule a HIPAA risk assessment at fraterit.com\",\n      youtube_title: \"HIPAA Risk Assessment: When Did You Last Do One? | FraterIT\",\n      youtube_tags: [\"HIPAA\", \"risk assessment\", \"healthcare compliance\", \"HHS\", \"cybersecurity\"],\n      youtube_description: \"HIPAA compliance starts with a current risk assessment. Most healthcare companies we work with are overdue. fraterit.com\"\n    },\n    friday: {\n      format: \"lockbit\",\n      title: \"The breach entry point was a vendor with too much access\",\n      hook: \"When we traced the LockBit attack back to its origin, it was not a phishing email.\",\n      body: \"It was a software vendor with a remote access connection that had not been reviewed in two years. They had domain-admin level access. That is how 4 hours of encryption happens across an entire network.\",\n      cta: \"Full case breakdown at fraterit.com\",\n      youtube_title: \"The LockBit Entry Point Wasn't Phishing — It Was a Vendor | FraterIT\",\n      youtube_tags: [\"LockBit\", \"vendor risk\", \"ransomware\", \"third party\", \"incident response\"],\n      youtube_description: \"The real entry point in this LockBit attack was an unreviewed vendor connection — not phishing. FraterIT breaks it down. fraterit.com\"\n    }\n  },\n  week4: {\n    monday: {\n      format: \"covered\",\n      title: \"Can your company survive 72 hours with no systems?\",\n      hook: \"If a ransomware event hit tonight, could your company operate tomorrow morning?\",\n      body: \"Do you have an offline backup that has been tested in the last 90 days? Do you have a communication plan that does not rely on your email server? Business continuity is a leadership problem — not just an IT problem.\",\n      cta: \"We build BCP and DR programs for mid-sized companies — fraterit.com\",\n      youtube_title: \"Can Your Company Survive 72 Hours With No Systems? | FraterIT\",\n      youtube_tags: [\"business continuity\", \"disaster recovery\", \"ransomware\", \"BCP\", \"MSSP\"],\n      youtube_description: \"Most companies discover their BCP gaps during an incident. FraterIT helps you find them before that happens. fraterit.com\"\n    },\n    wednesday: {\n      format: \"itguy\",\n      title: \"Backups running nightly is not the same as backups working\",\n      hook: \"Every IT team says their backups work.\",\n      body: \"But the company that called us after LockBit discovered their backups had been silently failing for 6 months. Nobody had tested them. Do not find out your backup system is broken during a breach.\",\n      cta: \"Ask us about backup validation assessments — fraterit.com\",\n      youtube_title: \"Backups Running Nightly ≠ Backups Working | FraterIT\",\n      youtube_tags: [\"backup\", \"disaster recovery\", \"ransomware\", \"cybersecurity\", \"IT management\"],\n      youtube_description: \"Silent backup failures are more common than most companies realize. FraterIT validates your backup and recovery posture. fraterit.com\"\n    },\n    friday: {\n      format: \"compliance\",\n      title: \"Cyber insurance carriers now require proof of controls before paying claims\",\n      hook: \"Cyber insurance used to pay out if you had a policy.\",\n      body: \"Now carriers are requiring proof of MFA, endpoint detection, patch management, and documented incident response before honoring claims. If you cannot prove those controls exist, your policy may not cover you.\",\n      cta: \"We help companies document controls for insurance compliance — fraterit.com\",\n      youtube_title: \"Cyber Insurance Won't Pay If You Can't Prove These Controls | FraterIT\",\n      youtube_tags: [\"cyber insurance\", \"MFA\", \"endpoint detection\", \"compliance\", \"MSSP\"],\n      youtube_description: \"Cyber insurance requirements have changed. FraterIT helps companies document the controls carriers now require. fraterit.com\"\n    }\n  }\n};\n\n// ─── Date Logic ───────────────────────────────────────────────────────────────\nconst now = new Date();\nconst dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat\n\n// Determine which day key to use\nconst DAY_MAP = { 1: \"monday\", 3: \"wednesday\", 5: \"friday\" };\nconst dayKey = DAY_MAP[dayOfWeek];\n\nif (!dayKey) {\n  throw new Error(`Today (dayOfWeek=${dayOfWeek}) is not a publishing day. This workflow runs Mon/Wed/Fri only.`);\n}\n\n// Week-of-month cycling (1-indexed, loops every 4 weeks)\n// Anchor: first Monday on or after 2025-01-06 (ISO week 2)\nconst EPOCH = new Date(\"2025-01-06T00:00:00Z\"); // known week1 Monday\nconst msPerWeek = 7 * 24 * 60 * 60 * 1000;\nconst weeksSinceEpoch = Math.floor((now - EPOCH) / msPerWeek);\nconst weekIndex = ((weeksSinceEpoch % 4) + 4) % 4; // 0-3\nconst WEEK_KEYS = [\"week1\", \"week2\", \"week3\", \"week4\"];\nconst weekKey = WEEK_KEYS[weekIndex];\n\n// ─── Script Selection ────────────────────────────────────────────────────────\nconst script = SCRIPTS[weekKey][dayKey];\nconst format = FORMATS[script.format];\n\n// ─── Full Script Text (for teleprompter / caption burn-in) ────────────────────\nconst fullScriptText = `${script.hook}\\n\\n${script.body}\\n\\n${script.cta}`;\n\n// ─── Production Brief ─────────────────────────────────────────────────────────\nconst productionDate = now.toISOString().split(\"T\")[0];\nconst productionBrief = `\n==========================================================\nFRATERIT CONTENT PRODUCTION BRIEF\n${productionDate} | ${weekKey.toUpperCase()} — ${dayKey.toUpperCase()}\n==========================================================\n\nFORMAT:     ${format.label}\nSTRUCTURE:  ${format.structure}\nVOICE TONE: ${METADATA.voice_tone}\nVIDEO SPEC: ${METADATA.video_format}\n\n----------------------------------------------------------\nTITLE:      ${script.title}\n----------------------------------------------------------\n\nHOOK:\n${script.hook}\n\nBODY:\n${script.body}\n\nCTA:\n${script.cta}\n\n----------------------------------------------------------\nYOUTUBE METADATA\n----------------------------------------------------------\nTitle:       ${script.youtube_title}\nDescription: ${script.youtube_description}\nTags:        ${script.youtube_tags.join(\", \")}\n\n----------------------------------------------------------\nB-ROLL / STOCK FOOTAGE KEYWORDS\n----------------------------------------------------------\n${format.pexels_keywords.join(\", \")}\n\n----------------------------------------------------------\nPRODUCTION NOTES\n----------------------------------------------------------\n• Vertical 9:16 format — shoot or crop accordingly\n• 30 seconds target length\n• Captions must be burned in before publishing\n• Lead with hook in first 2 seconds — no intro, no logo sting\n• CTA on screen as lower-third text\n• Brand: ${METADATA.brand}\n• Website CTA: ${METADATA.website}\n==========================================================\n`.trim();\n\nreturn [\n  {\n    json: {\n      // Context\n      production_date: productionDate,\n      week_key: weekKey,\n      day_key: dayKey,\n      // Script\n      format_key: script.format,\n      format_label: format.label,\n      title: script.title,\n      hook: script.hook,\n      body: script.body,\n      cta: script.cta,\n      full_script_text: fullScriptText,\n      // YouTube\n      youtube_title: script.youtube_title,\n      youtube_description: script.youtube_description,\n      youtube_tags: script.youtube_tags,\n      youtube_tags_string: script.youtube_tags.join(\", \"),\n      // Stock footage\n      pexels_search_query: format.pexels_keywords[0],\n      pexels_keywords: format.pexels_keywords,\n      // Brief\n      production_brief: productionBrief,\n      // Brand\n      brand: METADATA.brand,\n      website: METADATA.website,\n      contact_email: METADATA.email,\n      video_format: METADATA.video_format,\n      voice_tone: METADATA.voice_tone\n    }\n  }\n];"
+      }
+    },
+    {
+      "id": "node-pexels-search",
+      "name": "Search Pexels for B-Roll",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 200],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.pexels.com/videos/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $vars.PEXELS_API_KEY }}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.pexels_search_query }}"
+            },
+            {
+              "name": "orientation",
+              "value": "portrait"
+            },
+            {
+              "name": "size",
+              "value": "large"
+            },
+            {
+              "name": "per_page",
+              "value": "5"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "node-merge-pexels",
+      "name": "Merge Script + Pexels Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 380],
+      "parameters": {
+        "jsCode": "// Receive script data from Select Script node (input[0])\n// and Pexels results from the HTTP node (input[1]).\n// Merge into a single enriched object.\n\nconst scriptData = $('Select Script for Today').first().json;\nconst pexelsResponse = $('Search Pexels for B-Roll').first().json;\n\nconst videos = (pexelsResponse.videos || []).slice(0, 5).map(v => ({\n  id: v.id,\n  url: v.url,\n  duration: v.duration,\n  image_preview: v.image,\n  download_link: (v.video_files || []).find(f => f.quality === 'hd')?.link\n    || (v.video_files || [])[0]?.link\n    || null,\n  photographer: v.user?.name || 'Unknown'\n}));\n\nreturn [\n  {\n    json: {\n      ...scriptData,\n      broll_videos: videos,\n      broll_count: videos.length,\n      broll_primary_url: videos[0]?.download_link || null\n    }\n  }\n];"
+      }
+    },
+    {
+      "id": "node-format-email",
+      "name": "Format Production Email",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 290],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "email-subject",
+              "name": "email_subject",
+              "value": "=[FraterIT Content] {{ $json.week_key }} {{ $json.day_key }} — {{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "email-to",
+              "name": "email_to",
+              "value": "carlosalberto@fraterit.com",
+              "type": "string"
+            },
+            {
+              "id": "email-body",
+              "name": "email_body",
+              "value": "=<html>\n<body style=\"font-family: Arial, sans-serif; max-width: 700px; margin: auto; color: #1a1a1a;\">\n\n<h2 style=\"color: #003087; border-bottom: 2px solid #003087; padding-bottom: 8px;\">\n  FraterIT Content Brief — {{ $json.production_date }}\n</h2>\n\n<table style=\"width:100%; background:#f4f4f4; border-radius:6px; padding:12px; margin-bottom:20px;\">\n  <tr><td><strong>Week:</strong></td><td>{{ $json.week_key }}</td></tr>\n  <tr><td><strong>Day:</strong></td><td>{{ $json.day_key }}</td></tr>\n  <tr><td><strong>Format:</strong></td><td>{{ $json.format_label }}</td></tr>\n  <tr><td><strong>Video Spec:</strong></td><td>{{ $json.video_format }}</td></tr>\n</table>\n\n<h3>Script</h3>\n<p><strong>Title:</strong> {{ $json.title }}</p>\n<p><strong>Hook:</strong><br/>{{ $json.hook }}</p>\n<p><strong>Body:</strong><br/>{{ $json.body }}</p>\n<p><strong>CTA:</strong><br/>{{ $json.cta }}</p>\n\n<h3>YouTube Metadata</h3>\n<p><strong>Title:</strong> {{ $json.youtube_title }}</p>\n<p><strong>Description:</strong><br/>{{ $json.youtube_description }}</p>\n<p><strong>Tags:</strong> {{ $json.youtube_tags_string }}</p>\n\n<h3>B-Roll Keywords</h3>\n<p>{{ $json.pexels_keywords.join(', ') }}</p>\n\n{{ $json.broll_count > 0 ? '<h3>Suggested Stock Footage (' + $json.broll_count + ' results)</h3><ul>' + $json.broll_videos.map(v => '<li><a href=\"' + v.url + '\">' + v.url + '</a> — ' + v.duration + 's by ' + v.photographer + '</li>').join('') + '</ul>' : '<p><em>No Pexels results — search manually for: ' + $json.pexels_search_query + '</em></p>' }}\n\n<hr/>\n<p style=\"color:#888; font-size:12px;\">Generated by FraterIT n8n Content Automation | {{ $json.brand }}</p>\n</body>\n</html>",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "node-send-email",
+      "name": "Send Brief to Content Team",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1160, 200],
+      "parameters": {
+        "fromEmail": "automation@fraterit.com",
+        "toEmail": "={{ $json.email_to }}",
+        "subject": "={{ $json.email_subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.email_body }}",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "fraterit-smtp",
+          "name": "FraterIT SMTP"
+        }
+      }
+    },
+    {
+      "id": "node-google-sheets",
+      "name": "Log to Content Calendar Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1160, 380],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $vars.GOOGLE_SHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Content Calendar",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $json.production_date }}",
+            "Week": "={{ $json.week_key }}",
+            "Day": "={{ $json.day_key }}",
+            "Format": "={{ $json.format_label }}",
+            "Title": "={{ $json.title }}",
+            "Hook": "={{ $json.hook }}",
+            "Body": "={{ $json.body }}",
+            "CTA": "={{ $json.cta }}",
+            "YouTube Title": "={{ $json.youtube_title }}",
+            "YouTube Description": "={{ $json.youtube_description }}",
+            "YouTube Tags": "={{ $json.youtube_tags_string }}",
+            "Pexels Keywords": "={{ $json.pexels_keywords.join(', ') }}",
+            "B-Roll URL": "={{ $json.broll_primary_url }}",
+            "Status": "Ready for Production"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "fraterit-google-sheets",
+          "name": "FraterIT Google Sheets"
+        }
+      }
+    },
+    {
+      "id": "node-success-response",
+      "name": "Workflow Complete",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1400, 290],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Select Script for Today",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger (Mon/Wed/Fri 8am CT)": {
+      "main": [
+        [
+          {
+            "node": "Select Script for Today",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Script for Today": {
+      "main": [
+        [
+          {
+            "node": "Search Pexels for B-Roll",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Script + Pexels Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Pexels for B-Roll": {
+      "main": [
+        [
+          {
+            "node": "Merge Script + Pexels Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Script + Pexels Results": {
+      "main": [
+        [
+          {
+            "node": "Format Production Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Production Email": {
+      "main": [
+        [
+          {
+            "node": "Send Brief to Content Team",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log to Content Calendar Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Brief to Content Team": {
+      "main": [
+        [
+          {
+            "node": "Workflow Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Content Calendar Sheet": {
+      "main": [
+        [
+          {
+            "node": "Workflow Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "",
+    "timezone": "America/Chicago"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2026-03-22T00:00:00.000Z",
+      "updatedAt": "2026-03-22T00:00:00.000Z",
+      "id": "tag-fraterit-content",
+      "name": "FraterIT Content"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1",
+  "meta": {
+    "templateId": "fraterit-content-calendar-v1",
+    "templateCredsSetupCompleted": false,
+    "n8nVersion": "1.x"
+  },
+  "_setup_instructions": {
+    "required_credentials": [
+      {
+        "id": "fraterit-smtp",
+        "type": "smtp",
+        "description": "SMTP credentials for automation@fraterit.com — used to send production briefs"
+      },
+      {
+        "id": "fraterit-google-sheets",
+        "type": "googleSheetsOAuth2Api",
+        "description": "Google OAuth2 credentials with Sheets read/write scope"
+      }
+    ],
+    "required_variables": [
+      {
+        "name": "PEXELS_API_KEY",
+        "description": "Pexels API key — free at pexels.com/api. Used to search portrait-orientation b-roll footage.",
+        "where_to_add": "n8n Settings → Variables"
+      },
+      {
+        "name": "GOOGLE_SHEET_ID",
+        "description": "The ID from your Google Sheets URL: docs.google.com/spreadsheets/d/<THIS_PART>/edit",
+        "where_to_add": "n8n Settings → Variables"
+      }
+    ],
+    "google_sheet_columns": [
+      "Date", "Week", "Day", "Format", "Title", "Hook", "Body", "CTA",
+      "YouTube Title", "YouTube Description", "YouTube Tags",
+      "Pexels Keywords", "B-Roll URL", "Status"
+    ],
+    "schedule": "Runs automatically at 8:00 AM CT every Monday, Wednesday, and Friday. Uses a 4-week rolling calendar anchored to 2025-01-06.",
+    "activation": "Set workflow active = true in n8n after configuring credentials and variables."
+  }
+}
